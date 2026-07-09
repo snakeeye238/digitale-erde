@@ -41,6 +41,12 @@
 
       #globe canvas { outline: none; }
 
+      #globe {
+        position: fixed;
+        inset: 0;
+        z-index: 0;
+      }
+
       .grain {
         pointer-events: none;
         position: fixed;
@@ -124,7 +130,16 @@
         transform: translateY(-50%);
         width: min(420px, calc(100vw - 48px));
         pointer-events: none;
+        transition: opacity 280ms ease;
       }
+
+      body.is-close-up #globe { z-index: 4; }
+      body.is-close-up .intro { opacity: 0; }
+      body.is-close-up .topbar,
+      body.is-close-up .controls,
+      body.is-close-up .overlay-panel,
+      body.is-close-up .readout,
+      body.is-close-up .loading { z-index: 5; }
 
       .eyebrow {
         display: flex;
@@ -537,11 +552,8 @@
         bindOverlayToggle("grid-toggle", (enabled) => { gridDataSource.show = enabled; });
         bindOverlayToggle("daylight-toggle", (enabled) => { scene.globe.enableLighting = enabled; });
 
-        const daylight = new Cesium.DirectionalLight({
-          direction: new Cesium.Cartesian3(0.6, 0.2, -0.75),
-          intensity: 1.5
-        });
-        scene.light = daylight;
+        // Cesiums Standardlicht folgt dem echten Sonnenstand der Viewer-Uhr.
+        // Keine feste Richtung setzen, damit Tag und Nacht nicht "einfrieren".
 
         function flyHome() {
           camera.flyTo({ ...homeView, duration: 1.7, complete: updateAltitude });
@@ -569,6 +581,7 @@
             ? `${(height / 1000).toLocaleString("de-DE", { maximumFractionDigits: height > 100000 ? 0 : 1 })} km`
             : `${Math.round(height).toLocaleString("de-DE")} m`;
           document.getElementById("altitude").textContent = label;
+          document.body.classList.toggle("is-close-up", height < 1800000);
         }
 
         document.getElementById("zoom-in").addEventListener("click", () => zoom(0.55));
