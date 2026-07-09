@@ -1,0 +1,417 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Digitale Erde – ein interaktiver 3D-Globus mit Straßenansicht."
+    />
+    <title>Digitale Erde</title>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/cesium@1.114.0/Build/Cesium/Widgets/widgets.css"
+    />
+    <style>
+      :root {
+        color-scheme: dark;
+        --ink: #f7fbff;
+        --muted: #b7c5d6;
+        --line: rgba(218, 237, 255, 0.18);
+        --panel: rgba(8, 17, 32, 0.7);
+        --accent: #7af5d0;
+        --accent-strong: #25d6ac;
+        --warning: #ffcf75;
+      }
+
+      * { box-sizing: border-box; }
+
+      html, body, #globe {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        overflow: hidden;
+      }
+
+      body {
+        background: #050c16;
+        color: var(--ink);
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      #globe canvas { outline: none; }
+
+      .grain {
+        pointer-events: none;
+        position: fixed;
+        inset: 0;
+        z-index: 2;
+        opacity: 0.12;
+        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 160 160' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.75' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.38'/%3E%3C/svg%3E");
+      }
+
+      .topbar, .intro, .controls, .attribution, .loading {
+        position: fixed;
+        z-index: 3;
+      }
+
+      .topbar {
+        top: 0;
+        left: 0;
+        right: 0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 24px 30px;
+        pointer-events: none;
+      }
+
+      .brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 11px;
+        font-size: 14px;
+        font-weight: 750;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .brand-mark {
+        width: 30px;
+        height: 30px;
+        border: 1px solid rgba(122, 245, 208, 0.85);
+        border-radius: 50%;
+        box-shadow: inset -6px -3px 0 rgba(37, 214, 172, 0.18), 0 0 22px rgba(122, 245, 208, 0.25);
+        position: relative;
+      }
+
+      .brand-mark::before, .brand-mark::after {
+        content: "";
+        position: absolute;
+        inset: 6px 2px;
+        border: 1px solid rgba(122, 245, 208, 0.45);
+        border-radius: 50%;
+      }
+
+      .brand-mark::after { inset: 13px 0; border-radius: 50%; }
+
+      .status {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: var(--muted);
+        font-size: 12px;
+        letter-spacing: 0.04em;
+      }
+
+      .pulse {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--accent);
+        box-shadow: 0 0 0 0 rgba(122, 245, 208, 0.55);
+        animation: pulse 2s infinite;
+      }
+
+      @keyframes pulse {
+        70% { box-shadow: 0 0 0 8px rgba(122, 245, 208, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(122, 245, 208, 0); }
+      }
+
+      .intro {
+        top: 50%;
+        left: clamp(24px, 6vw, 96px);
+        transform: translateY(-50%);
+        width: min(420px, calc(100vw - 48px));
+        pointer-events: none;
+      }
+
+      .eyebrow {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        color: var(--accent);
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+      }
+
+      .eyebrow::before { content: ""; width: 26px; height: 1px; background: currentColor; }
+
+      h1 {
+        max-width: 390px;
+        margin: 15px 0;
+        font-size: clamp(42px, 5.2vw, 76px);
+        line-height: 0.98;
+        letter-spacing: -0.07em;
+        font-weight: 750;
+      }
+
+      .intro p {
+        max-width: 360px;
+        margin: 0;
+        color: var(--muted);
+        font-size: 15px;
+        line-height: 1.55;
+      }
+
+      .hint {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-top: 26px;
+        color: rgba(247, 251, 255, 0.9);
+        font-size: 13px;
+      }
+
+      .scroll-icon {
+        width: 20px;
+        height: 30px;
+        border: 1px solid rgba(247, 251, 255, 0.65);
+        border-radius: 12px;
+        display: grid;
+        place-items: start center;
+        padding-top: 5px;
+      }
+
+      .scroll-icon::after {
+        content: "";
+        height: 6px;
+        width: 2px;
+        border-radius: 2px;
+        background: var(--accent);
+        animation: scroll 1.6s ease-in-out infinite;
+      }
+
+      @keyframes scroll { 50% { transform: translateY(9px); opacity: 0.25; } }
+
+      .controls {
+        right: 30px;
+        bottom: 30px;
+        display: grid;
+        gap: 9px;
+      }
+
+      .action {
+        appearance: none;
+        width: 45px;
+        height: 45px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: var(--panel);
+        backdrop-filter: blur(12px);
+        color: var(--ink);
+        cursor: pointer;
+        font: 500 22px/1 Inter, sans-serif;
+        transition: transform 160ms ease, border-color 160ms ease, background 160ms ease;
+      }
+
+      .action:hover, .action:focus-visible {
+        background: rgba(16, 43, 64, 0.88);
+        border-color: rgba(122, 245, 208, 0.75);
+        transform: translateY(-2px);
+        outline: none;
+      }
+
+      .action.locate { font-size: 17px; }
+
+      .readout {
+        position: fixed;
+        right: 30px;
+        bottom: 202px;
+        z-index: 3;
+        width: 154px;
+        padding: 13px 14px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: var(--panel);
+        backdrop-filter: blur(12px);
+        pointer-events: none;
+      }
+
+      .readout span {
+        display: block;
+        color: var(--muted);
+        font-size: 10px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+
+      .readout strong { display: block; margin-top: 4px; font-size: 15px; font-weight: 650; }
+
+      .attribution {
+        left: 30px;
+        bottom: 24px;
+        color: rgba(183, 197, 214, 0.68);
+        font-size: 10px;
+        letter-spacing: 0.02em;
+      }
+
+      .attribution a { color: inherit; }
+
+      .loading {
+        inset: 0;
+        z-index: 5;
+        display: grid;
+        place-items: center;
+        background: #050c16;
+        transition: opacity 600ms ease, visibility 600ms ease;
+      }
+
+      .loading.done { opacity: 0; visibility: hidden; }
+
+      .loader-content { text-align: center; }
+      .loader-orbit { width: 52px; height: 52px; margin: 0 auto 16px; border: 2px solid rgba(122, 245, 208, 0.18); border-top-color: var(--accent); border-radius: 50%; animation: rotate 1s linear infinite; }
+      .loader-content span { color: var(--muted); font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; }
+      @keyframes rotate { to { transform: rotate(360deg); } }
+
+      .cesium-viewer-bottom { display: none; }
+      .cesium-widget-credits { display: none !important; }
+
+      @media (max-width: 680px) {
+        .topbar { padding: 18px; }
+        .status { display: none; }
+        .intro { top: auto; bottom: 100px; transform: none; left: 24px; }
+        h1 { font-size: 48px; }
+        .intro p { font-size: 14px; }
+        .hint { margin-top: 18px; }
+        .controls { right: 18px; bottom: 20px; grid-auto-flow: column; }
+        .readout { right: 18px; bottom: 83px; }
+        .attribution { display: none; }
+      }
+    </style>
+  </head>
+  <body>
+    <main id="globe" aria-label="Interaktiver 3D-Globus"></main>
+    <div class="grain"></div>
+
+    <header class="topbar">
+      <div class="brand"><span class="brand-mark" aria-hidden="true"></span>Digitale Erde</div>
+      <div class="status"><span class="pulse" aria-hidden="true"></span><span>Straßenebene verfügbar</span></div>
+    </header>
+
+    <section class="intro" aria-label="Einführung">
+      <div class="eyebrow">Live erkunden</div>
+      <h1>Die Welt<br />in deiner Hand.</h1>
+      <p>Vom blauen Planeten bis zur nächsten Kreuzung: Drehe, neige und zoome frei durch deinen digitalen Zwilling der Erde.</p>
+      <div class="hint"><span class="scroll-icon" aria-hidden="true"></span>Mit Mausrad oder Pinch-Geste hineinzoomen</div>
+    </section>
+
+    <div class="readout" aria-live="polite">
+      <span>Höhe</span>
+      <strong id="altitude">–</strong>
+    </div>
+
+    <nav class="controls" aria-label="Globus-Steuerung">
+      <button class="action" id="zoom-in" type="button" aria-label="Hineinzoomen">+</button>
+      <button class="action" id="zoom-out" type="button" aria-label="Herauszoomen">−</button>
+      <button class="action locate" id="home" type="button" aria-label="Zur Gesamtansicht">◎</button>
+    </nav>
+
+    <p class="attribution">Kartendaten © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap-Mitwirkende</a></p>
+
+    <div class="loading" id="loading" role="status" aria-label="Globus wird geladen">
+      <div class="loader-content"><div class="loader-orbit"></div><span>Erde wird initialisiert</span></div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/cesium@1.114.0/Build/Cesium/Cesium.js"></script>
+    <script>
+      (() => {
+        const homeView = {
+          destination: Cesium.Cartesian3.fromDegrees(12, 28, 22000000),
+          orientation: { heading: Cesium.Math.toRadians(-18), pitch: Cesium.Math.toRadians(-28), roll: 0 }
+        };
+
+        const streetMap = new Cesium.OpenStreetMapImageryProvider({
+          url: "https://tile.openstreetmap.org/",
+          maximumLevel: 19,
+          credit: new Cesium.Credit("© OpenStreetMap contributors")
+        });
+
+        const viewer = new Cesium.Viewer("globe", {
+          imageryProvider: streetMap,
+          terrainProvider: new Cesium.EllipsoidTerrainProvider(),
+          baseLayerPicker: false,
+          animation: false,
+          timeline: false,
+          geocoder: false,
+          homeButton: false,
+          sceneModePicker: false,
+          navigationHelpButton: false,
+          infoBox: false,
+          selectionIndicator: false,
+          fullscreenButton: false,
+          shouldAnimate: true,
+          skyBox: false,
+          skyAtmosphere: new Cesium.SkyAtmosphere(),
+          contextOptions: { webgl: { alpha: false, antialias: true } }
+        });
+
+        const { scene, camera } = viewer;
+        scene.backgroundColor = Cesium.Color.fromCssColorString("#050c16");
+        scene.globe.baseColor = Cesium.Color.fromCssColorString("#102537");
+        scene.globe.showGroundAtmosphere = true;
+        scene.globe.enableLighting = true;
+        scene.globe.atmosphereLightIntensity = 6;
+        scene.globe.tileCacheSize = 200;
+        scene.fog.enabled = true;
+        scene.fog.density = 0.00008;
+        scene.screenSpaceCameraController.minimumZoomDistance = 35;
+        scene.screenSpaceCameraController.maximumZoomDistance = 40000000;
+        scene.screenSpaceCameraController.inertiaSpin = 0.86;
+        scene.screenSpaceCameraController.inertiaZoom = 0.78;
+        scene.screenSpaceCameraController.zoomEventTypes = [
+          Cesium.CameraEventType.WHEEL,
+          Cesium.CameraEventType.PINCH
+        ];
+
+        const daylight = new Cesium.DirectionalLight({
+          direction: new Cesium.Cartesian3(0.6, 0.2, -0.75),
+          intensity: 1.5
+        });
+        scene.light = daylight;
+
+        function flyHome() {
+          camera.flyTo({ ...homeView, duration: 1.7, complete: updateAltitude });
+        }
+
+        function zoom(multiplier) {
+          const current = camera.positionCartographic;
+          const targetHeight = Cesium.Math.clamp(
+            current.height * multiplier,
+            scene.screenSpaceCameraController.minimumZoomDistance,
+            scene.screenSpaceCameraController.maximumZoomDistance
+          );
+
+          camera.flyTo({
+            destination: Cesium.Cartesian3.fromRadians(current.longitude, current.latitude, targetHeight),
+            orientation: { heading: camera.heading, pitch: camera.pitch, roll: camera.roll },
+            duration: 0.45,
+            complete: updateAltitude
+          });
+        }
+
+        function updateAltitude() {
+          const height = Math.max(0, camera.positionCartographic.height);
+          const label = height >= 1000
+            ? `${(height / 1000).toLocaleString("de-DE", { maximumFractionDigits: height > 100000 ? 0 : 1 })} km`
+            : `${Math.round(height).toLocaleString("de-DE")} m`;
+          document.getElementById("altitude").textContent = label;
+        }
+
+        document.getElementById("zoom-in").addEventListener("click", () => zoom(0.55));
+        document.getElementById("zoom-out").addEventListener("click", () => zoom(1.8));
+        document.getElementById("home").addEventListener("click", flyHome);
+        camera.changed.addEventListener(updateAltitude);
+        scene.globe.tileLoadProgressEvent.addEventListener((pending) => {
+          if (pending === 0) document.getElementById("loading").classList.add("done");
+        });
+
+        flyHome();
+        updateAltitude();
+        window.setTimeout(() => document.getElementById("loading").classList.add("done"), 4000);
+      })();
+    </script>
+  </body>
+</html>
