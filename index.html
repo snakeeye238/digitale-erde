@@ -50,7 +50,7 @@
         background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 160 160' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.75' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.38'/%3E%3C/svg%3E");
       }
 
-      .topbar, .intro, .controls, .attribution, .loading {
+      .topbar, .intro, .controls, .overlay-panel, .attribution, .loading {
         position: fixed;
         z-index: 3;
       }
@@ -252,6 +252,49 @@
 
       .attribution a { color: inherit; }
 
+      .overlay-panel {
+        right: 96px;
+        bottom: 30px;
+        width: 220px;
+        padding: 12px;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: rgba(7, 21, 34, 0.76);
+        backdrop-filter: blur(14px);
+      }
+
+      .overlay-title {
+        margin: 1px 5px 8px;
+        color: var(--muted);
+        font-size: 10px;
+        font-weight: 650;
+        letter-spacing: 0.13em;
+        text-transform: uppercase;
+      }
+
+      .overlay-option {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        width: 100%;
+        padding: 9px 7px;
+        border: 0;
+        border-radius: 10px;
+        background: transparent;
+        color: var(--ink);
+        cursor: pointer;
+        font: inherit;
+        text-align: left;
+        transition: background 160ms ease;
+      }
+
+      .overlay-option:hover, .overlay-option:focus-visible { background: rgba(122, 245, 208, 0.1); outline: none; }
+      .overlay-option strong, .overlay-option small { display: block; }
+      .overlay-option strong { font-size: 12px; font-weight: 600; }
+      .overlay-option small { margin-top: 2px; color: var(--muted); font-size: 10px; }
+      .overlay-state { color: var(--muted); font-size: 10px; font-weight: 650; letter-spacing: 0.08em; }
+      .overlay-option[aria-pressed="true"] .overlay-state { color: var(--accent); }
+
       .loading {
         inset: 0;
         z-index: 5;
@@ -280,6 +323,7 @@
         .hint { margin-top: 18px; }
         .controls { right: 18px; bottom: 20px; grid-auto-flow: column; }
         .readout { right: 18px; bottom: 83px; }
+        .overlay-panel { top: 72px; right: 18px; bottom: auto; width: min(210px, calc(100vw - 36px)); }
         .attribution { display: none; }
       }
     </style>
@@ -312,6 +356,19 @@
       <button class="action locate" id="home" type="button" aria-label="Zur Gesamtansicht">◎</button>
     </nav>
 
+    <aside class="overlay-panel" aria-label="Kartenebenen">
+      <div class="overlay-title">Ebenen</div>
+      <button class="overlay-option" id="cities-toggle" type="button" aria-pressed="true">
+        <span><strong>Große Städte</strong><small>Berlin, Dresden + weitere</small></span><span class="overlay-state">AN</span>
+      </button>
+      <button class="overlay-option" id="grid-toggle" type="button" aria-pressed="false">
+        <span><strong>Koordinatennetz</strong><small>30° Gradlinien</small></span><span class="overlay-state">AUS</span>
+      </button>
+      <button class="overlay-option" id="daylight-toggle" type="button" aria-pressed="true">
+        <span><strong>Tag &amp; Nacht</strong><small>Live-Sonnenstand</small></span><span class="overlay-state">AN</span>
+      </button>
+    </aside>
+
     <p class="attribution">Orthofoto © Esri, Maxar, Earthstar Geographics &amp; GIS User Community · Straßen © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap-Mitwirkende</a></p>
 
     <div class="loading" id="loading" role="status" aria-label="Globus wird geladen">
@@ -331,6 +388,7 @@
           maximumLevel: 19,
           credit: new Cesium.Credit("© OpenStreetMap contributors")
         });
+        const streetLayer = new Cesium.ImageryLayer(streetMap);
 
         const orthophotoMap = new Cesium.UrlTemplateImageryProvider({
           url: "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
@@ -340,7 +398,7 @@
         });
 
         const viewer = new Cesium.Viewer("globe", {
-          imageryProvider: streetMap,
+          baseLayer: streetLayer,
           terrainProvider: new Cesium.EllipsoidTerrainProvider(),
           baseLayerPicker: false,
           animation: false,
@@ -408,6 +466,76 @@
           failuresInWindow += 1;
           if (failuresInWindow >= 4 && orthophotoLayer.show) setOrthophotoVisible(false, true);
         });
+
+        const cityDataSource = new Cesium.CustomDataSource("Große Städte");
+        const cities = [
+          ["Berlin", 13.405, 52.52, true], ["Dresden", 13.737, 51.05, true],
+          ["Hamburg", 9.994, 53.551], ["München", 11.582, 48.135],
+          ["Köln", 6.96, 50.938], ["Frankfurt", 8.682, 50.11],
+          ["Wien", 16.373, 48.208], ["Prag", 14.438, 50.076],
+          ["Warschau", 21.012, 52.23], ["Paris", 2.352, 48.857],
+          ["London", -0.128, 51.507], ["Rom", 12.496, 41.902],
+          ["Istanbul", 28.979, 41.008], ["Kairo", 31.236, 30.044],
+          ["New York", -74.006, 40.713], ["São Paulo", -46.633, -23.551],
+          ["Tokio", 139.692, 35.69], ["Singapur", 103.82, 1.352], ["Sydney", 151.209, -33.869]
+        ];
+
+        for (const [name, longitude, latitude, featured = false] of cities) {
+          cityDataSource.entities.add({
+            position: Cesium.Cartesian3.fromDegrees(longitude, latitude, 1200),
+            point: {
+              pixelSize: featured ? 9 : 6,
+              color: Cesium.Color.fromCssColorString("#7af5d0"),
+              outlineColor: Cesium.Color.fromCssColorString("#062235"),
+              outlineWidth: 2,
+              distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 26000000)
+            },
+            label: {
+              text: name,
+              font: featured ? "650 14px Inter, sans-serif" : "600 12px Inter, sans-serif",
+              fillColor: Cesium.Color.fromCssColorString("#e5fff7"),
+              outlineColor: Cesium.Color.fromCssColorString("#062235"),
+              outlineWidth: 3,
+              style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+              horizontalOrigin: Cesium.HorizontalOrigin.LEFT,
+              verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+              pixelOffset: new Cesium.Cartesian2(9, -4),
+              scaleByDistance: new Cesium.NearFarScalar(300000, 1, 25000000, 0.7),
+              distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 26000000)
+            }
+          });
+        }
+        viewer.dataSources.add(cityDataSource);
+
+        const gridDataSource = new Cesium.CustomDataSource("Koordinatennetz");
+        const gridMaterial = Cesium.Color.fromCssColorString("#7af5d0").withAlpha(0.42);
+        for (let longitude = -180; longitude <= 180; longitude += 30) {
+          const positions = [];
+          for (let latitude = -80; latitude <= 80; latitude += 2) positions.push(Cesium.Cartesian3.fromDegrees(longitude, latitude, 1800));
+          gridDataSource.entities.add({ polyline: { positions, width: 1, material: gridMaterial } });
+        }
+        for (let latitude = -60; latitude <= 60; latitude += 30) {
+          const positions = [];
+          for (let longitude = -180; longitude <= 180; longitude += 2) positions.push(Cesium.Cartesian3.fromDegrees(longitude, latitude, 1800));
+          gridDataSource.entities.add({ polyline: { positions, width: 1, material: gridMaterial } });
+        }
+        gridDataSource.show = false;
+        viewer.dataSources.add(gridDataSource);
+
+        function bindOverlayToggle(id, apply) {
+          const button = document.getElementById(id);
+          const state = button.querySelector(".overlay-state");
+          button.addEventListener("click", () => {
+            const enabled = button.getAttribute("aria-pressed") !== "true";
+            apply(enabled);
+            button.setAttribute("aria-pressed", String(enabled));
+            state.textContent = enabled ? "AN" : "AUS";
+          });
+        }
+
+        bindOverlayToggle("cities-toggle", (enabled) => { cityDataSource.show = enabled; });
+        bindOverlayToggle("grid-toggle", (enabled) => { gridDataSource.show = enabled; });
+        bindOverlayToggle("daylight-toggle", (enabled) => { scene.globe.enableLighting = enabled; });
 
         const daylight = new Cesium.DirectionalLight({
           direction: new Cesium.Cartesian3(0.6, 0.2, -0.75),

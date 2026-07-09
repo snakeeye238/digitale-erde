@@ -17,8 +17,10 @@ Danach `http://localhost:8080` im Browser aufrufen.
 - frei dreh- und neigbarer 3D-Globus
 - Zoom vom Orbit bis zu Straßenebene
 - Orthofoto als Standardebene (Esri World Imagery, Zoomstufe 19)
-- OpenStreetMap-Kartendaten bis Zoomstufe 19
+- OpenStreetMap-Straßenkarte als zuverlässige Basis bis Zoomstufe 19
 - umschaltbare Orthofoto-Ebene mit sichtbarer Quellenangabe
+- Overlay für große Städte, darunter Berlin und Dresden
+- zuschaltbares 30°-Koordinatennetz und Tag-/Nacht-Schatten
 - responsive Bedienung für Maus und Touch
 - kompakte Zoom-, Home- und Höhenanzeige
 
