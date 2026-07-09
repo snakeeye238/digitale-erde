@@ -130,16 +130,10 @@
         transform: translateY(-50%);
         width: min(420px, calc(100vw - 48px));
         pointer-events: none;
-        transition: opacity 280ms ease;
+        transition: transform 460ms cubic-bezier(0.22, 0.8, 0.25, 1), opacity 260ms ease;
       }
 
-      body.is-close-up #globe { z-index: 4; }
-      body.is-close-up .intro { opacity: 0; }
-      body.is-close-up .topbar,
-      body.is-close-up .controls,
-      body.is-close-up .overlay-panel,
-      body.is-close-up .readout,
-      body.is-close-up .loading { z-index: 5; }
+      body.is-close-up .intro { opacity: 0; transform: translate(-140%, -50%); }
 
       .eyebrow {
         display: flex;
@@ -581,7 +575,7 @@
             ? `${(height / 1000).toLocaleString("de-DE", { maximumFractionDigits: height > 100000 ? 0 : 1 })} km`
             : `${Math.round(height).toLocaleString("de-DE")} m`;
           document.getElementById("altitude").textContent = label;
-          document.body.classList.toggle("is-close-up", height < 1800000);
+          document.body.classList.toggle("is-close-up", height < 4000000);
         }
 
         document.getElementById("zoom-in").addEventListener("click", () => zoom(0.55));
